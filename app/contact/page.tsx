@@ -97,7 +97,6 @@ export default function ContactPage() {
                   <p className="text-white">
                     Cairo, Egypt
                   </p>
-                  </p>
                 </div>
               </div>
             </div>
