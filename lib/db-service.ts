@@ -15,6 +15,8 @@
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import type { SiteSettings } from '@/types/settings';
+import { DEFAULT_SITE_SETTINGS } from './default-settings';
 
 // Collection names
 export const COLLECTIONS = {
@@ -33,6 +35,7 @@ export interface DBUser {
   id: string;
   email: string;
   displayName: string;
+  photoURL?: string;
   phone?: string;
   address?: {
     street: string;
@@ -55,15 +58,16 @@ export interface DBUser {
 export interface DBProduct {
   id: string;
   name: string;
+  slug: string;
   description: string;
   price: number;
-  originalPrice: number;
+  comparePrice?: number;
   category: string;
   images: string[];
-  sizes: string[];
-  colors: string[];
+  sizes?: string[];
+  colors?: string[];
   stock: number;
-  status: 'draft' | 'pending' | 'active';
+  status: 'draft' | 'active' | 'archived';
   featured: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -116,31 +120,7 @@ export interface DBContact {
 }
 
 // Site settings interface
-export interface DBSettings {
-  siteName: string;
-  tagline: string;
-  description: string;
-  email: string;
-  phone: string;
-  address: string;
-  socialLinks: {
-    instagram?: string;
-    twitter?: string;
-    facebook?: string;
-    tiktok?: string;
-  };
-  heroTitle: string;
-  heroSubtitle: string;
-  heroButtonText: string;
-  aboutTitle: string;
-  aboutContent: string;
-  footerText: string;
-  announcementBar?: string;
-  primaryColor: string;
-  accentColor: string;
-  currency: string;
-  taxRate: number;
-}
+export type DBSettings = SiteSettings;
 
 // ============ USER FUNCTIONS ============
 
@@ -331,33 +311,8 @@ export async function updateSettings(data: Partial<DBSettings>) {
 export async function initializeSettings() {
   const existing = await getSettings();
   if (!existing) {
-    const defaultSettings: DBSettings = {
-      siteName: 'ZEN LOCAL BRAND',
-      tagline: 'Premium Streetwear Collection',
-      description: 'Elevate your style with our exclusive collection of premium streetwear.',
-      email: 'contact@zenlocalbrand.com',
-      phone: '+1 (555) 123-4567',
-      address: '123 Fashion Street, Style City, SC 12345',
-      socialLinks: {
-        instagram: 'https://instagram.com/zenlocalbrand',
-        twitter: 'https://twitter.com/zenlocalbrand',
-        facebook: 'https://facebook.com/zenlocalbrand',
-        tiktok: 'https://tiktok.com/@zenlocalbrand',
-      },
-      heroTitle: 'ZEN LOCAL BRAND',
-      heroSubtitle: 'Elevate your style with our exclusive collection of premium streetwear. Designed for those who dare to stand out.',
-      heroButtonText: 'Shop Now',
-      aboutTitle: 'Our Story',
-      aboutContent: 'Founded in 2026, ZEN LOCAL BRAND was born from a passion for creating high-quality streetwear that combines comfort with cutting-edge design.',
-      footerText: ' 2026 ZEN LOCAL BRAND. All rights reserved.',
-      announcementBar: ' Free shipping on orders over $100!',
-      primaryColor: '#10b981',
-      accentColor: '#34d399',
-      currency: 'USD',
-      taxRate: 0,
-    };
-    await updateSettings(defaultSettings);
-    return defaultSettings;
+    await updateSettings(DEFAULT_SITE_SETTINGS);
+    return DEFAULT_SITE_SETTINGS;
   }
   return existing;
 }

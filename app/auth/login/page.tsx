@@ -8,6 +8,7 @@ import { Mail, Lock, Eye, EyeOff, LogIn, ArrowRight, Loader2 } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth';
 import { auth } from '@/lib/firebase';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, PRIMARY_ADMIN_EMAIL } from '@/lib/security';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -19,6 +20,36 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSending2FA, setIsSending2FA] = useState(false);
 
+  const notifyLogin = async (payload: {
+    email: string;
+    status: 'success' | 'failed' | '2fa_required';
+    reason?: string;
+    userId?: string;
+    isAdmin?: boolean;
+  }) => {
+    try {
+      await fetch('/api/auth/login-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error('Login alert failed', error);
+    }
+  };
+
+  const isAdminEmail = (value?: string | null) =>
+    Boolean(value && value.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase());
+
+  const isAdminCredentials = (valueEmail: string, valuePassword: string) => {
+    const normalizedEmail = valueEmail.trim().toLowerCase();
+    const isOwnerEmail = normalizedEmail === PRIMARY_ADMIN_EMAIL.toLowerCase();
+    const isAdminUsername = normalizedEmail === ADMIN_USERNAME.toLowerCase();
+    return (isOwnerEmail || isAdminUsername) && valuePassword === ADMIN_PASSWORD;
+  };
+
+  const admin2faUserId = `admin:${PRIMARY_ADMIN_EMAIL.toLowerCase()}`;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -28,6 +59,43 @@ export default function LoginPage() {
     }
 
     try {
+      if (isAdminCredentials(email, password)) {
+        setIsSending2FA(true);
+        await notifyLogin({
+          email: PRIMARY_ADMIN_EMAIL,
+          status: '2fa_required',
+          isAdmin: true,
+          reason: 'Admin credential login via storefront',
+        });
+
+        try {
+          const response = await fetch('/api/auth/2fa/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: admin2faUserId, email: PRIMARY_ADMIN_EMAIL }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to send 2FA code');
+          }
+
+          toast.success('Verification code sent to your email!');
+          router.push(
+            `/auth/2fa?uid=${encodeURIComponent(admin2faUserId)}&email=${encodeURIComponent(
+              PRIMARY_ADMIN_EMAIL
+            )}`
+          );
+          return;
+        } catch (error) {
+          console.error('2FA error:', error);
+          toast.error('Could not send 2FA code. Please try again.');
+          setIsSending2FA(false);
+          return;
+        }
+      }
+
       await signIn(email, password);
       
       // Check if email is verified
@@ -41,15 +109,22 @@ export default function LoginPage() {
       }
       
       const userId = auth.currentUser?.uid;
-      const userEmail = auth.currentUser?.email;
+      const userEmail = auth.currentUser?.email || email;
+      const adminAccount = isAdminEmail(userEmail);
       
       // Check if 2FA is enabled for this user
       try {
         const statusResponse = await fetch(`/api/auth/2fa/status?userId=${userId}`);
         const statusData = await statusResponse.json();
         
-        if (!statusData.twoFactorEnabled) {
-          // 2FA is disabled, proceed to home
+        if (!statusData.twoFactorEnabled && !adminAccount) {
+          await notifyLogin({
+            email: userEmail,
+            status: 'success',
+            userId,
+            isAdmin: false,
+          });
+
           toast.success('Welcome back!');
           router.push('/');
           return;
@@ -60,6 +135,12 @@ export default function LoginPage() {
       
       // Send 2FA code
       setIsSending2FA(true);
+      await notifyLogin({
+        email: userEmail,
+        status: '2fa_required',
+        userId,
+        isAdmin: adminAccount,
+      });
       
       try {
         const response = await fetch('/api/auth/2fa/send', {
@@ -84,6 +165,13 @@ export default function LoginPage() {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
+      if (email) {
+        await notifyLogin({
+          email,
+          status: 'failed',
+          reason: errorMessage,
+        });
+      }
       toast.error(errorMessage);
       setIsSending2FA(false);
     }
@@ -95,6 +183,7 @@ export default function LoginPage() {
       
       const userId = auth.currentUser?.uid;
       const userEmail = auth.currentUser?.email;
+      const adminAccount = isAdminEmail(userEmail);
       
       if (userId && userEmail) {
         // Check if 2FA is enabled for this user
@@ -102,8 +191,14 @@ export default function LoginPage() {
           const statusResponse = await fetch(`/api/auth/2fa/status?userId=${userId}`);
           const statusData = await statusResponse.json();
           
-          if (!statusData.twoFactorEnabled) {
-            // 2FA is disabled, proceed to home
+          if (!statusData.twoFactorEnabled && !adminAccount) {
+            await notifyLogin({
+              email: userEmail,
+              status: 'success',
+              userId,
+              isAdmin: false,
+            });
+
             toast.success('Welcome!');
             router.push('/');
             return;
@@ -114,6 +209,12 @@ export default function LoginPage() {
         
         // Send 2FA code for Google sign-in
         setIsSending2FA(true);
+        await notifyLogin({
+          email: userEmail,
+          status: '2fa_required',
+          userId,
+          isAdmin: adminAccount,
+        });
         try {
           const response = await fetch('/api/auth/2fa/send', {
             method: 'POST',
@@ -131,8 +232,17 @@ export default function LoginPage() {
         }
       }
       
+      if (userEmail) {
+        await notifyLogin({
+          email: userEmail,
+          status: 'success',
+          userId,
+          isAdmin: adminAccount,
+        });
+      }
+
       toast.success('Welcome!');
-      router.push('/');
+      router.push(adminAccount ? '/zen-admin' : '/');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign in with Google';
       if (errorMessage !== 'Sign in cancelled') {

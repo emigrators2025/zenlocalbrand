@@ -8,6 +8,7 @@ import { ShoppingBag, User, Menu, X, Search, Heart, AlertTriangle } from 'lucide
 import { Logo } from '@/components/ui/logo';
 import { useCartStore } from '@/stores/cart';
 import { useAuthStore } from '@/stores/auth';
+import type { SiteSettings } from '@/types/settings';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -16,7 +17,11 @@ const navLinks = [
   { href: '/contact', label: 'Contact' },
 ];
 
-export function Navbar() {
+interface NavbarProps {
+  settings: SiteSettings;
+}
+
+export function Navbar({ settings }: NavbarProps) {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -68,7 +73,7 @@ export function Navbar() {
       >
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
-            <Logo />
+            <Logo size="md" inverted />
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-8">
@@ -78,7 +83,7 @@ export function Navbar() {
                   href={link.href}
                   className={`relative text-sm font-medium transition-colors ${
                     pathname === link.href
-                      ? 'text-emerald-400'
+                      ? 'text-primary'
                       : 'text-zinc-300 hover:text-white'
                   }`}
                 >
@@ -86,7 +91,7 @@ export function Navbar() {
                   {pathname === link.href && (
                     <motion.div
                       layoutId="navbar-indicator"
-                      className="absolute -bottom-1 left-0 right-0 h-0.5 bg-emerald-400"
+                      className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
                     />
                   )}
                 </Link>
@@ -98,21 +103,24 @@ export function Navbar() {
               <button className="hidden sm:flex p-2 text-zinc-400 hover:text-white transition-colors">
                 <Search className="w-5 h-5" />
               </button>
-              <button className="hidden sm:flex p-2 text-zinc-400 hover:text-white transition-colors">
+              <Link
+                href="/wishlist"
+                className="hidden sm:flex p-2 text-zinc-400 hover:text-white transition-colors"
+              >
                 <Heart className="w-5 h-5" />
-              </button>
+              </Link>
               <Link
                 href="/cart"
                 className="relative p-2 text-zinc-400 hover:text-white transition-colors"
               >
                 <ShoppingBag className="w-5 h-5" />
-                {itemCount > 0 && (
+                {itemCount() > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-white text-xs font-bold rounded-full flex items-center justify-center"
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-black text-xs font-bold rounded-full flex items-center justify-center"
                   >
-                    {itemCount}
+                    {itemCount()}
                   </motion.span>
                 )}
               </Link>
@@ -151,7 +159,7 @@ export function Navbar() {
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`text-2xl font-bold py-3 border-b border-zinc-800 ${
-                    pathname === link.href ? 'text-emerald-400' : 'text-white'
+                    pathname === link.href ? 'text-primary' : 'text-white'
                   }`}
                 >
                   {link.label}

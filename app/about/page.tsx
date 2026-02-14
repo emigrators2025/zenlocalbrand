@@ -1,9 +1,11 @@
 ﻿"use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Award, Heart, Leaf, Truck } from "lucide-react";
+import { useSettingsStore } from "@/stores/settings";
 
 const values = [
   {
@@ -47,6 +49,29 @@ const team = [
 ];
 
 export default function AboutPage() {
+  const { settings, loadSettings } = useSettingsStore();
+  const [stats, setStats] = useState([
+    { number: "10K+", label: "Happy Customers" },
+    { number: "50+", label: "Products" },
+    { number: "15+", label: "Countries" },
+    { number: "99%", label: "Satisfaction" },
+  ]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  useEffect(() => {
+    if (settings?.stats) {
+      setStats([
+        { number: settings.stats.happyCustomers || "10K+", label: "Happy Customers" },
+        { number: settings.stats.totalProducts || "50+", label: "Products" },
+        { number: settings.stats.countries || "15+", label: "Countries" },
+        { number: settings.stats.satisfaction || "99%", label: "Satisfaction" },
+      ]);
+    }
+  }, [settings]);
+
   return (
     <div className="min-h-screen bg-black">
       {/* Hero Section */}
@@ -152,12 +177,7 @@ export default function AboutPage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { number: "10K+", label: "Happy Customers" },
-              { number: "50+", label: "Products" },
-              { number: "15+", label: "Countries" },
-              { number: "99%", label: "Satisfaction" },
-            ].map((stat, index) => (
+            {stats.map((stat, index) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, scale: 0.9 }}

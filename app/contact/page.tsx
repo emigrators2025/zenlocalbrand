@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle } from "lucide-react";
-import { createContact } from "@/lib/db-service";
 
 export default function ContactPage() {
   const [form, setForm] = useState({
@@ -22,7 +21,16 @@ export default function ContactPage() {
     setError("");
 
     try {
-      await createContact(form);
+      const response = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+      
       setIsSuccess(true);
       setForm({ name: "", email: "", subject: "", message: "" });
     } catch (err) {

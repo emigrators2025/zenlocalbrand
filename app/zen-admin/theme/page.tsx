@@ -1,18 +1,11 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Palette,
-  Type,
-  Square,
-  RotateCcw,
-  Save,
-  Eye,
-  Sun,
-  Moon,
-} from 'lucide-react';
-import { useThemeStore } from '@/stores/theme';
+import { Palette, Type, Square, RotateCcw, Save, Eye } from 'lucide-react';
+import { useSettingsStore } from '@/stores/settings';
+import toast from 'react-hot-toast';
+import { formatPrice } from '@/lib/utils';
 
 const colorPresets = [
   { name: 'Emerald', primary: '#10b981', accent: '#34d399' },
@@ -44,13 +37,93 @@ const radiusOptions = [
   { name: 'Full', value: '9999px' },
 ];
 
-export default function AdminThemePage() {
-  const { settings, updateSettings, resetToDefaults } = useThemeStore();
-  const [saved, setSaved] = useState(false);
+type ThemeFormState = {
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  fontFamily: string;
+  borderRadius: string;
+  logoText: string;
+  tagline: string;
+};
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+const defaultTheme: ThemeFormState = {
+  primaryColor: '#10b981',
+  accentColor: '#34d399',
+  backgroundColor: '#09090b',
+  textColor: '#ffffff',
+  fontFamily: 'Inter',
+  borderRadius: '0.75rem',
+  logoText: 'ZEN LOCAL BRAND',
+  tagline: 'Premium Streetwear Collection',
+};
+
+export default function AdminThemePage() {
+  const { settings, loadSettings, saveSettings, isLoading } = useSettingsStore();
+  const [form, setForm] = useState<ThemeFormState>(defaultTheme);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  useEffect(() => {
+    if (settings) {
+      setForm({
+        primaryColor: settings.primaryColor ?? defaultTheme.primaryColor,
+        accentColor: settings.accentColor ?? defaultTheme.accentColor,
+        backgroundColor: settings.backgroundColor ?? defaultTheme.backgroundColor,
+        textColor: settings.textColor ?? defaultTheme.textColor,
+        fontFamily: settings.fontFamily ?? defaultTheme.fontFamily,
+        borderRadius: settings.borderRadius ?? defaultTheme.borderRadius,
+        logoText: settings.siteName ?? defaultTheme.logoText,
+        tagline: settings.tagline ?? defaultTheme.tagline,
+      });
+    }
+  }, [settings]);
+
+  const updateForm = (changes: Partial<ThemeFormState>) =>
+    setForm((prev) => ({ ...prev, ...changes }));
+
+  const syncTheme = async (themeValues: ThemeFormState) => {
+    await saveSettings({
+      primaryColor: themeValues.primaryColor,
+      accentColor: themeValues.accentColor,
+      backgroundColor: themeValues.backgroundColor,
+      textColor: themeValues.textColor,
+      fontFamily: themeValues.fontFamily,
+      borderRadius: themeValues.borderRadius,
+      siteName: themeValues.logoText,
+      tagline: themeValues.tagline,
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await syncTheme(form);
+      toast.success('Theme saved successfully');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to save theme');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    setForm(defaultTheme);
+    setSaving(true);
+    try {
+      await syncTheme(defaultTheme);
+      toast.success('Theme reset to defaults');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to reset theme');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -67,8 +140,9 @@ export default function AdminThemePage() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={resetToDefaults}
+            onClick={handleReset}
             className="flex items-center gap-2 px-4 py-2 bg-zinc-800 rounded-lg hover:bg-zinc-700 transition-colors"
+            disabled={saving || isLoading}
           >
             <RotateCcw size={18} />
             Reset
@@ -77,10 +151,11 @@ export default function AdminThemePage() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-black font-medium rounded-lg hover:bg-emerald-400 transition-colors"
+            disabled={saving || isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-60"
           >
             <Save size={18} />
-            {saved ? 'Saved!' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Save Changes'}
           </motion.button>
         </div>
       </div>
@@ -108,12 +183,14 @@ export default function AdminThemePage() {
                 {colorPresets.map((preset) => (
                   <button
                     key={preset.name}
-                    onClick={() => updateSettings({ 
-                      primaryColor: preset.primary,
-                      accentColor: preset.accent 
-                    })}
+                    onClick={() =>
+                      updateForm({
+                        primaryColor: preset.primary,
+                        accentColor: preset.accent,
+                      })
+                    }
                     className={`p-3 rounded-lg border-2 transition-all ${
-                      settings.primaryColor === preset.primary
+                      form.primaryColor === preset.primary
                         ? 'border-white'
                         : 'border-zinc-700 hover:border-zinc-500'
                     }`}
@@ -132,14 +209,14 @@ export default function AdminThemePage() {
                 <div className="flex gap-2">
                   <input
                     type="color"
-                    value={settings.primaryColor}
-                    onChange={(e) => updateSettings({ primaryColor: e.target.value })}
+                    value={form.primaryColor}
+                    onChange={(e) => updateForm({ primaryColor: e.target.value })}
                     className="w-12 h-10 rounded cursor-pointer border-0"
                   />
                   <input
                     type="text"
-                    value={settings.primaryColor}
-                    onChange={(e) => updateSettings({ primaryColor: e.target.value })}
+                    value={form.primaryColor}
+                    onChange={(e) => updateForm({ primaryColor: e.target.value })}
                     className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm font-mono"
                   />
                 </div>
@@ -149,14 +226,14 @@ export default function AdminThemePage() {
                 <div className="flex gap-2">
                   <input
                     type="color"
-                    value={settings.accentColor}
-                    onChange={(e) => updateSettings({ accentColor: e.target.value })}
+                    value={form.accentColor}
+                    onChange={(e) => updateForm({ accentColor: e.target.value })}
                     className="w-12 h-10 rounded cursor-pointer border-0"
                   />
                   <input
                     type="text"
-                    value={settings.accentColor}
-                    onChange={(e) => updateSettings({ accentColor: e.target.value })}
+                    value={form.accentColor}
+                    onChange={(e) => updateForm({ accentColor: e.target.value })}
                     className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm font-mono"
                   />
                 </div>
@@ -184,9 +261,9 @@ export default function AdminThemePage() {
                 {fontOptions.map((font) => (
                   <button
                     key={font}
-                    onClick={() => updateSettings({ fontFamily: font })}
+                    onClick={() => updateForm({ fontFamily: font })}
                     className={`px-4 py-3 rounded-lg border transition-all text-left ${
-                      settings.fontFamily === font
+                      form.fontFamily === font
                         ? 'border-emerald-500 bg-emerald-500/10'
                         : 'border-zinc-700 hover:border-zinc-500'
                     }`}
@@ -217,9 +294,9 @@ export default function AdminThemePage() {
               {radiusOptions.map((option) => (
                 <button
                   key={option.name}
-                  onClick={() => updateSettings({ borderRadius: option.value })}
+                  onClick={() => updateForm({ borderRadius: option.value })}
                   className={`flex-1 px-4 py-3 border transition-all ${
-                    settings.borderRadius === option.value
+                    form.borderRadius === option.value
                       ? 'border-emerald-500 bg-emerald-500/10'
                       : 'border-zinc-700 hover:border-zinc-500'
                   }`}
@@ -250,8 +327,8 @@ export default function AdminThemePage() {
                 <label className="block text-sm font-medium mb-2">Brand Name</label>
                 <input
                   type="text"
-                  value={settings.logoText}
-                  onChange={(e) => updateSettings({ logoText: e.target.value })}
+                  value={form.logoText}
+                  onChange={(e) => updateForm({ logoText: e.target.value })}
                   className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -259,8 +336,8 @@ export default function AdminThemePage() {
                 <label className="block text-sm font-medium mb-2">Tagline</label>
                 <input
                   type="text"
-                  value={settings.tagline}
-                  onChange={(e) => updateSettings({ tagline: e.target.value })}
+                  value={form.tagline}
+                  onChange={(e) => updateForm({ tagline: e.target.value })}
                   className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -286,19 +363,19 @@ export default function AdminThemePage() {
           <div 
             className="rounded-xl overflow-hidden border border-zinc-700"
             style={{ 
-              fontFamily: settings.fontFamily,
-              borderRadius: settings.borderRadius 
+              fontFamily: form.fontFamily,
+              borderRadius: form.borderRadius 
             }}
           >
             {/* Preview Header */}
             <div className="bg-zinc-800 p-4 flex items-center justify-between">
-              <span className="font-bold" style={{ color: settings.primaryColor }}>
-                {settings.logoText}
+              <span className="font-bold" style={{ color: form.primaryColor }}>
+                {form.logoText}
               </span>
               <div className="flex gap-2">
                 <div 
                   className="w-8 h-8 rounded-full"
-                  style={{ backgroundColor: settings.primaryColor, borderRadius: settings.borderRadius }}
+                  style={{ backgroundColor: form.primaryColor, borderRadius: form.borderRadius }}
                 />
               </div>
             </div>
@@ -306,20 +383,20 @@ export default function AdminThemePage() {
             {/* Preview Hero */}
             <div 
               className="p-8 text-center"
-              style={{ background: `linear-gradient(to bottom right, ${settings.primaryColor}20, transparent)` }}
+              style={{ background: `linear-gradient(to bottom right, ${form.primaryColor}20, transparent)` }}
             >
               <h3 
                 className="text-2xl font-bold mb-2"
-                style={{ color: settings.textColor }}
+                style={{ color: form.textColor }}
               >
-                {settings.logoText}
+                {form.logoText}
               </h3>
-              <p className="text-gray-400 mb-4">{settings.tagline}</p>
+              <p className="text-gray-400 mb-4">{form.tagline}</p>
               <button
                 className="px-6 py-2 font-medium"
                 style={{ 
-                  backgroundColor: settings.primaryColor,
-                  borderRadius: settings.borderRadius,
+                  backgroundColor: form.primaryColor,
+                  borderRadius: form.borderRadius,
                   color: '#000'
                 }}
               >
@@ -333,12 +410,12 @@ export default function AdminThemePage() {
                 <div 
                   key={i}
                   className="bg-zinc-800 overflow-hidden"
-                  style={{ borderRadius: settings.borderRadius }}
+                  style={{ borderRadius: form.borderRadius }}
                 >
                   <div className="aspect-square bg-zinc-700" />
                   <div className="p-3">
                     <p className="font-medium text-sm">Product {i}</p>
-                    <p style={{ color: settings.primaryColor }} className="text-sm font-bold">$99.00</p>
+                    <p style={{ color: form.primaryColor }} className="text-sm font-bold">{formatPrice(99)}</p>
                   </div>
                 </div>
               ))}
@@ -349,8 +426,8 @@ export default function AdminThemePage() {
               <button
                 className="w-full py-2 font-medium"
                 style={{ 
-                  backgroundColor: settings.primaryColor,
-                  borderRadius: settings.borderRadius,
+                  backgroundColor: form.primaryColor,
+                  borderRadius: form.borderRadius,
                   color: '#000'
                 }}
               >
@@ -359,9 +436,9 @@ export default function AdminThemePage() {
               <button
                 className="w-full py-2 font-medium border"
                 style={{ 
-                  borderColor: settings.primaryColor,
-                  borderRadius: settings.borderRadius,
-                  color: settings.primaryColor
+                  borderColor: form.primaryColor,
+                  borderRadius: form.borderRadius,
+                  color: form.primaryColor
                 }}
               >
                 Secondary Button

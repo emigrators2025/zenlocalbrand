@@ -20,8 +20,41 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useAdminStore } from "@/stores/admin";
-import { getAllOrders, updateOrder, DBOrder } from "@/lib/db-service";
 import { formatPrice } from "@/lib/utils";
+
+interface DBOrder {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userPhone: string;
+  items: {
+    productId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    size?: string;
+    color?: string;
+    image?: string;
+  }[];
+  subtotal: number;
+  shipping: number;
+  total: number;
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  shippingAddress: {
+    street: string;
+    city: string;
+    governorate: string;
+    country: string;
+  };
+  paymentMethod: 'cod' | 'instapay';
+  paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
+  paymentScreenshot?: string;
+  trackingNumber?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export default function AdminOrdersPage() {
   const router = useRouter();
@@ -45,8 +78,15 @@ export default function AdminOrdersPage() {
   const loadOrders = async () => {
     setIsLoading(true);
     try {
-      const allOrders = await getAllOrders();
-      setOrders(allOrders);
+      const response = await fetch('/api/orders');
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      const data = await response.json();
+      const formattedOrders = data.orders.map((order: DBOrder & { createdAt: string; updatedAt: string }) => ({
+        ...order,
+        createdAt: new Date(order.createdAt),
+        updatedAt: new Date(order.updatedAt),
+      }));
+      setOrders(formattedOrders);
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
@@ -57,7 +97,14 @@ export default function AdminOrdersPage() {
   const handleUpdateStatus = async (orderId: string, status: DBOrder["status"]) => {
     setIsUpdating(true);
     try {
-      await updateOrder(orderId, { status });
+      const response = await fetch('/api/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update order');
+      
       setOrders((prev) =>
         prev.map((order) =>
           order.id === orderId ? { ...order, status } : order
@@ -341,7 +388,7 @@ export default function AdminOrdersPage() {
                     <h3 className="text-white font-semibold mb-2">Shipping Address</h3>
                     <p className="text-gray-400">
                       {selectedOrder.shippingAddress.street}<br />
-                      {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.governorate || selectedOrder.shippingAddress.state}<br />
+                      {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.governorate}<br />
                       {selectedOrder.shippingAddress.country}
                     </p>
                   </div>

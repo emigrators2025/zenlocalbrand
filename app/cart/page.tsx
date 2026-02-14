@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/stores/cart';
 import { formatPrice } from '@/lib/utils';
 
+const FREE_SHIPPING_THRESHOLD = 5000;
+const STANDARD_SHIPPING_FEE = 50;
+
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, total, itemCount } = useCartStore();
 
@@ -73,7 +76,7 @@ export default function CartPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-3xl md:text-4xl font-bold text-white mb-8"
         >
-          Shopping Cart ({itemCount} items)
+          Shopping Cart ({itemCount()} items)
         </motion.h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -91,14 +94,14 @@ export default function CartPage() {
                   className="glass rounded-2xl p-4 flex gap-4"
                 >
                   {/* Product Image */}
-                  <Link href={`/products/${item.id}`}>
+                  <Link href={`/products/${item.product.slug}`}>
                     <motion.div 
                       whileHover={{ scale: 1.05 }}
                       className="relative w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden flex-shrink-0"
                     >
                       <Image
-                        src={item.image}
-                        alt={item.name}
+                        src={item.product.images[0]}
+                        alt={item.product.name}
                         fill
                         className="object-cover"
                       />
@@ -109,9 +112,9 @@ export default function CartPage() {
                   <div className="flex-1 flex flex-col">
                     <div className="flex justify-between items-start">
                       <div>
-                        <Link href={`/products/${item.id}`}>
+                        <Link href={`/products/${item.product.slug}`}>
                           <h3 className="text-white font-semibold hover:text-emerald-400 transition-colors">
-                            {item.name}
+                            {item.product.name}
                           </h3>
                         </Link>
                         <div className="flex gap-2 mt-1">
@@ -163,7 +166,7 @@ export default function CartPage() {
 
                       {/* Price */}
                       <p className="text-white font-semibold text-lg">
-                        {formatPrice(item.price * item.quantity)}
+                        {formatPrice(item.product.price * item.quantity)}
                       </p>
                     </div>
                   </div>
@@ -185,18 +188,18 @@ export default function CartPage() {
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-zinc-400">
                   <span>Subtotal</span>
-                  <span>{formatPrice(total)}</span>
+                  <span>{formatPrice(total())}</span>
                 </div>
                 <div className="flex justify-between text-zinc-400">
                   <span>Shipping</span>
-                  <span className={total > 1500 ? "text-emerald-400" : "text-zinc-400"}>
-                    {total > 1500 ? "Free" : formatPrice(50)}
+                  <span className={total() >= FREE_SHIPPING_THRESHOLD ? "text-emerald-400" : "text-zinc-400"}>
+                    {total() >= FREE_SHIPPING_THRESHOLD ? "Free" : formatPrice(STANDARD_SHIPPING_FEE)}
                   </span>
                 </div>
                 <div className="h-px bg-zinc-700" />
                 <div className="flex justify-between text-white font-bold text-lg">
                   <span>Total</span>
-                  <span>{formatPrice(total > 1500 ? total : total + 50)}</span>
+                  <span>{formatPrice(total() >= FREE_SHIPPING_THRESHOLD ? total() : total() + STANDARD_SHIPPING_FEE)}</span>
                 </div>
               </div>
 
@@ -220,7 +223,7 @@ export default function CartPage() {
               </Link>
 
               <p className="text-xs text-zinc-500 text-center mt-4">
-                🚚 Free shipping on orders over 1,500 EGP
+                🚚 Free shipping on orders over 5,000 EGP
               </p>
             </div>
           </motion.div>

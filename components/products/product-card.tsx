@@ -3,10 +3,11 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingCart, Heart } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { Product } from '@/types';
 import { formatPrice } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart';
+import { WishlistButton } from './wishlist-button';
 import toast from 'react-hot-toast';
 
 interface ProductCardProps {
@@ -52,13 +53,15 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
               >
                 <ShoppingCart className="w-5 h-5" />
               </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="p-3 bg-white/20 backdrop-blur rounded-full text-white"
-              >
-                <Heart className="w-5 h-5" />
-              </motion.button>
+              <WishlistButton 
+                product={{
+                  id: product.id,
+                  name: product.name,
+                  slug: product.slug,
+                  price: product.price,
+                  images: product.images,
+                }} 
+              />
             </div>
 
             {/* Badges */}

@@ -1,9 +1,9 @@
 ﻿'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Package, Search, Filter, Grid, List, X, SlidersHorizontal } from 'lucide-react';
+import { Package, Search, Filter, Grid, List, SlidersHorizontal, Loader2, X } from 'lucide-react';
 import { useProductsStore } from '@/stores/products';
 
 const categories = ['All', 'Hoodies', 'T-Shirts', 'Pants', 'Jackets', 'Accessories', 'Shoes'];
@@ -14,18 +14,32 @@ const sortOptions = [
   { value: 'name', label: 'Name: A-Z' },
 ];
 
+const priceRanges = [
+  { value: 'all', label: 'All Prices', min: 0, max: Infinity },
+  { value: 'under-500', label: 'Under 500 EGP', min: 0, max: 500 },
+  { value: '500-1000', label: '500 - 1000 EGP', min: 500, max: 1000 },
+  { value: '1000-2000', label: '1000 - 2000 EGP', min: 1000, max: 2000 },
+  { value: 'over-2000', label: 'Over 2000 EGP', min: 2000, max: Infinity },
+];
+
 export default function ProductsPage() {
-  const { products } = useProductsStore();
+  const { products, isLoading, loadProducts } = useProductsStore();
   const activeProducts = products.filter(p => p.status === 'active');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showFilters, setShowFilters] = useState(false);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [selectedPriceRange, setSelectedPriceRange] = useState('all');
+
+  // Load products from Firestore on mount
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   const filteredProducts = useMemo(() => {
+    // Get price range from selection
+    const priceFilter = priceRanges.find(p => p.value === selectedPriceRange) || priceRanges[0];
     let filtered = activeProducts;
 
     // Search filter
@@ -42,7 +56,7 @@ export default function ProductsPage() {
     }
 
     // Price filter
-    filtered = filtered.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
+    filtered = filtered.filter(p => p.price >= priceFilter.min && p.price <= priceFilter.max);
 
     // Sort
     switch (sortBy) {
@@ -62,7 +76,31 @@ export default function ProductsPage() {
     }
 
     return filtered;
-  }, [activeProducts, searchTerm, selectedCategory, sortBy, priceRange]);
+  }, [activeProducts, searchTerm, selectedCategory, sortBy, selectedPriceRange]);
+
+  // Count active filters
+  const activeFilterCount = [
+    searchTerm ? 1 : 0,
+    selectedCategory !== 'All' ? 1 : 0,
+    selectedPriceRange !== 'all' ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('All');
+    setSelectedPriceRange('all');
+    setSortBy('newest');
+  };
+
+  if (isLoading && products.length === 0) {
+    return (
+      <main className="min-h-screen pt-24 pb-12">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen pt-24 pb-12">
@@ -119,6 +157,20 @@ export default function ProductsPage() {
             <SlidersHorizontal className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
           </div>
 
+          {/* Price Range Filter */}
+          <div className="relative">
+            <select
+              value={selectedPriceRange}
+              onChange={(e) => setSelectedPriceRange(e.target.value)}
+              className="appearance-none px-4 py-3 pr-10 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-emerald-500 transition-colors"
+            >
+              {priceRanges.map(range => (
+                <option key={range.value} value={range.value}>{range.label}</option>
+              ))}
+            </select>
+            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+          </div>
+
           {/* View Toggle */}
           <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
             <button
@@ -134,6 +186,17 @@ export default function ProductsPage() {
               <List size={20} />
             </button>
           </div>
+
+          {/* Clear Filters */}
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-2 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-red-500 hover:text-red-500 transition-colors"
+            >
+              <X size={18} />
+              <span>Clear ({activeFilterCount})</span>
+            </button>
+          )}
         </div>
 
         {/* Category Pills */}
@@ -165,7 +228,7 @@ export default function ProductsPage() {
             </div>
             <h2 className="text-2xl font-bold mb-4">No Products Available</h2>
             <p className="text-gray-400 mb-8 max-w-md mx-auto">
-              We're currently preparing our collection. Check back soon for amazing streetwear!
+              We are currently preparing our collection. Check back soon for amazing streetwear!
             </p>
             <Link href="/">
               <motion.button
@@ -215,7 +278,7 @@ export default function ProductsPage() {
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.2, delay: index * 0.05 }}
                 >
-                  <Link href={`/products/${product.id}`}>
+                  <Link href={`/products/${product.slug}`}>
                     {viewMode === 'grid' ? (
                       <div className="group bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500/50 transition-all duration-300">
                         <div className="aspect-square bg-zinc-800 relative overflow-hidden">
@@ -235,7 +298,7 @@ export default function ProductsPage() {
                               Featured
                             </div>
                           )}
-                          {product.originalPrice > product.price && (
+                          {product.comparePrice && product.comparePrice > product.price && (
                             <div className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs font-medium rounded">
                               Sale
                             </div>
@@ -247,9 +310,9 @@ export default function ProductsPage() {
                           </h3>
                           <p className="text-gray-400 text-sm">{product.category}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <span className="text-emerald-400 font-bold">${product.price}</span>
-                            {product.originalPrice > product.price && (
-                              <span className="text-gray-500 line-through text-sm">${product.originalPrice}</span>
+                            <span className="text-emerald-400 font-bold">{product.price} EGP</span>
+                            {product.comparePrice && product.comparePrice > product.price && (
+                              <span className="text-gray-500 line-through text-sm">{product.comparePrice} EGP</span>
                             )}
                           </div>
                           {product.sizes && product.sizes.length > 0 && (
@@ -296,9 +359,9 @@ export default function ProductsPage() {
                             )}
                           </div>
                           <div className="text-right">
-                            <span className="text-emerald-400 font-bold text-lg">${product.price}</span>
-                            {product.originalPrice > product.price && (
-                              <span className="block text-gray-500 line-through text-sm">${product.originalPrice}</span>
+                            <span className="text-emerald-400 font-bold text-lg">{product.price} EGP</span>
+                            {product.comparePrice && product.comparePrice > product.price && (
+                              <span className="block text-gray-500 line-through text-sm">{product.comparePrice} EGP</span>
                             )}
                           </div>
                         </div>

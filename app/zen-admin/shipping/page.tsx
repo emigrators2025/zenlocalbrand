@@ -9,13 +9,14 @@ import {
   Trash2,
   MapPin,
   Globe,
-  DollarSign,
+  Coins,
   Clock,
   X,
   Check,
   Power,
 } from 'lucide-react';
 import { useShippingStore, ShippingZone } from '@/stores/shipping';
+import { formatPrice } from '@/lib/utils';
 
 interface ZoneForm {
   name: string;
@@ -230,15 +231,15 @@ export default function AdminShippingPage() {
                     </div>
                     <div>
                       <p className="text-gray-400 flex items-center gap-1 mb-1">
-                        <DollarSign size={14} /> Base Cost
+                        <Coins size={14} /> Base Cost
                       </p>
-                      <p className="font-medium text-emerald-400">${zone.baseCost.toFixed(2)}</p>
+                      <p className="font-medium text-emerald-400">{formatPrice(zone.baseCost)}</p>
                     </div>
                     <div>
                       <p className="text-gray-400 flex items-center gap-1 mb-1">
                         <Truck size={14} /> Free Shipping
                       </p>
-                      <p className="font-medium">Orders over ${zone.freeShippingThreshold}</p>
+                      <p className="font-medium">Orders over {formatPrice(zone.freeShippingThreshold)}</p>
                     </div>
                     <div>
                       <p className="text-gray-400 flex items-center gap-1 mb-1">
@@ -373,7 +374,7 @@ export default function AdminShippingPage() {
                   <div>
                     <label className="block text-sm font-medium mb-2">Base Shipping Cost *</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">EGP</span>
                       <input
                         type="number"
                         value={form.baseCost}
@@ -381,21 +382,21 @@ export default function AdminShippingPage() {
                         required
                         min="0"
                         step="0.01"
-                        className="w-full pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
+                        className="w-full pl-14 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Free Shipping Over</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">EGP</span>
                       <input
                         type="number"
                         value={form.freeShippingThreshold}
                         onChange={(e) => setForm(prev => ({ ...prev, freeShippingThreshold: parseFloat(e.target.value) || 0 }))}
                         min="0"
                         step="0.01"
-                        className="w-full pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
+                        className="w-full pl-14 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>

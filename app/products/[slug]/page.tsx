@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
-  Heart, 
   Minus, 
   Plus, 
   ShoppingBag, 
@@ -15,108 +14,109 @@ import {
   Truck,
   Shield,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/products/product-card';
+import { WishlistButton } from '@/components/products/wishlist-button';
+import { ProductReviews } from '@/components/products/product-reviews';
 import { useCartStore } from '@/stores/cart';
 import { Product } from '@/types';
 import { formatPrice } from '@/lib/utils';
 import toast from 'react-hot-toast';
-
-// Sample product data (will be replaced with Firestore fetch)
-const sampleProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Urban Stealth Hoodie',
-    slug: 'urban-stealth-hoodie',
-    description: 'Premium quality hoodie crafted from organic cotton blend. Features a modern oversized fit, kangaroo pocket, and adjustable drawstring hood. Perfect for those who appreciate minimalist aesthetics with maximum comfort. The fabric is pre-shrunk and maintains its shape wash after wash.',
-    price: 89.99,
-    comparePrice: 129.99,
-    images: [
-      'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800',
-      'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=800',
-      'https://images.unsplash.com/photo-1509942774463-acf339cf87d5?w=800',
-    ],
-    category: 'Hoodies',
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    colors: ['Black', 'Charcoal', 'Navy'],
-    stock: 50,
-    status: 'active',
-    featured: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '2',
-    name: 'Midnight Runner Tee',
-    slug: 'midnight-runner-tee',
-    description: 'Comfortable oversized t-shirt made from 100% organic cotton.',
-    price: 49.99,
-    images: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600'],
-    category: 'T-Shirts',
-    sizes: ['S', 'M', 'L', 'XL'],
-    stock: 100,
-    status: 'active',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '3',
-    name: 'Tech Cargo Pants',
-    slug: 'tech-cargo-pants',
-    description: 'Functional cargo pants with modern fit and multiple pockets.',
-    price: 119.99,
-    comparePrice: 149.99,
-    images: ['https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600'],
-    category: 'Pants',
-    sizes: ['S', 'M', 'L', 'XL'],
-    stock: 30,
-    status: 'active',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
-const reviews = [
-  { id: 1, name: 'Alex M.', rating: 5, comment: 'Best hoodie I\'ve ever owned. The quality is insane!', date: '2 weeks ago' },
-  { id: 2, name: 'Jordan K.', rating: 4, comment: 'Great fit and super comfortable. Would buy again.', date: '1 month ago' },
-  { id: 3, name: 'Sam T.', rating: 5, comment: 'Exceeded my expectations. Worth every penny.', date: '1 month ago' },
-];
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { addItem } = useCartStore();
   
+  const [product, setProduct] = useState<Product | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
 
-  // Find product by slug
-  const product = sampleProducts.find(p => p.slug === params.slug) || sampleProducts[0];
-  const relatedProducts = sampleProducts.filter(p => p.id !== product.id).slice(0, 3);
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        
+        if (!data.products || data.products.length === 0) {
+          console.log('No products found in API response');
+          setIsLoading(false);
+          return;
+        }
+        
+        const products = data.products.map((p: Product & { createdAt: string; updatedAt: string }) => ({
+          ...p,
+          createdAt: new Date(p.createdAt),
+          updatedAt: new Date(p.updatedAt),
+        }));
+        setAllProducts(products);
+        
+        // Find product by slug (case-insensitive)
+        const slug = params.slug as string;
+        const foundProduct = products.find((p: Product) => 
+          p.slug === slug || p.slug?.toLowerCase() === slug?.toLowerCase()
+        );
+        
+        console.log('Looking for slug:', slug);
+        console.log('Available slugs:', products.map((p: Product) => p.slug));
+        console.log('Found product:', foundProduct?.name);
+        
+        setProduct(foundProduct || null);
+      } catch (error) {
+        console.error('Failed to load product:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [params.slug]);
+
+  const relatedProducts = allProducts.filter(p => p.id !== product?.id && p.status === 'active').slice(0, 3);
 
   const handleAddToCart = () => {
-    if (product.sizes && !selectedSize) {
+    if (!product) return;
+    
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
       toast.error('Please select a size');
       return;
     }
     
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      quantity,
-      image: product.images[0],
-      size: selectedSize,
-      color: selectedColor,
-    });
+    addItem(product, quantity, selectedSize, selectedColor);
     
     toast.success(`${product.name} added to cart!`);
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="gradient-bg min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  // Product not found
+  if (!product) {
+    return (
+      <div className="gradient-bg min-h-screen flex flex-col items-center justify-center">
+        <h1 className="text-2xl font-bold text-white mb-4">Product Not Found</h1>
+        <p className="text-zinc-400 mb-6">The product you&apos;re looking for doesn&apos;t exist.</p>
+        <Link href="/products">
+          <Button>Browse Products</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const discount = product.comparePrice 
     ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
@@ -218,16 +218,17 @@ export default function ProductDetailPage() {
                   {product.name}
                 </h1>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsWishlisted(!isWishlisted)}
-                className={`p-3 rounded-full ${
-                  isWishlisted ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-400'
-                }`}
-              >
-                <Heart className={`w-6 h-6 ${isWishlisted ? 'fill-current' : ''}`} />
-              </motion.button>
+              <WishlistButton 
+                product={{
+                  id: product.id,
+                  name: product.name,
+                  slug: product.slug,
+                  price: product.price,
+                  images: product.images,
+                }}
+                iconSize={24}
+                className="p-3"
+              />
             </div>
 
             {/* Rating */}
@@ -395,37 +396,7 @@ export default function ProductDetailPage() {
           viewport={{ once: true }}
           className="mt-20"
         >
-          <h2 className="text-2xl font-bold text-white mb-8">Customer Reviews</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {reviews.map((review, index) => (
-              <motion.div
-                key={review.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="glass rounded-2xl p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`w-4 h-4 ${
-                          star <= review.rating
-                            ? 'text-yellow-400 fill-yellow-400'
-                            : 'text-zinc-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-zinc-500">{review.date}</span>
-                </div>
-                <p className="text-zinc-300 mb-4">&quot;{review.comment}&quot;</p>
-                <p className="text-sm text-zinc-500">— {review.name}</p>
-              </motion.div>
-            ))}
-          </div>
+          <ProductReviews productId={product.id} />
         </motion.section>
 
         {/* Related Products */}

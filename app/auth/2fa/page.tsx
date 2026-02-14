@@ -7,10 +7,13 @@ import { motion } from 'framer-motion';
 import { Shield, RefreshCw, ArrowLeft, Loader2, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
+import { useAdminStore } from '@/stores/admin';
+import { PRIMARY_ADMIN_EMAIL } from '@/lib/security';
 
 function TwoFactorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login: adminLogin, setAdminEmail } = useAdminStore();
   
   const [code, setCode] = useState(['', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -77,6 +80,26 @@ function TwoFactorContent() {
     }
   };
 
+  const notifyLogin = async (payload: {
+    email: string;
+    status: 'success' | 'failed' | '2fa_required';
+    reason?: string;
+    userId?: string;
+    isAdmin?: boolean;
+  }) => {
+    try {
+      await fetch('/api/auth/login-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error('Login alert failed', error);
+    }
+  };
+
+  const isAdminAccount = email && email.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase();
+
   const handleVerify = async () => {
     const fullCode = code.join('');
     if (fullCode.length !== 12) {
@@ -101,10 +124,32 @@ function TwoFactorContent() {
       // Store 2FA verification in session
       sessionStorage.setItem('2fa_verified', userId!);
       
+      await notifyLogin({
+        email: email!,
+        status: 'success',
+        userId: userId ?? undefined,
+        isAdmin: !!isAdminAccount,
+      });
+
+      if (isAdminAccount) {
+        const token = btoa(`ZEN-ADMIN-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        adminLogin(token);
+        setAdminEmail(email!);
+      }
+
       toast.success('Verification successful!');
-      router.push('/');
+      router.push(isAdminAccount ? '/zen-admin/login' : '/');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Verification failed';
+      if (email) {
+        await notifyLogin({
+          email,
+          status: 'failed',
+          reason: message,
+          userId: userId ?? undefined,
+          isAdmin: !!isAdminAccount,
+        });
+      }
       toast.error(message);
     } finally {
       setIsVerifying(false);

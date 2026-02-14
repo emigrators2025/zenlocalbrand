@@ -4,7 +4,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile,
   onAuthStateChanged,
@@ -13,7 +12,37 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { createUser, getUser, updateUser } from '@/lib/db-service';
+
+// Helper functions to call users API
+const apiCreateUser = async (userId: string, data: { email: string; displayName: string; photoURL?: string; emailVerified?: boolean }) => {
+  const response = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, ...data }),
+  });
+  if (!response.ok) throw new Error('Failed to create user');
+  return response.json();
+};
+
+const apiGetUser = async (userId: string) => {
+  const response = await fetch(`/api/users?userId=${userId}`);
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    throw new Error('Failed to get user');
+  }
+  const data = await response.json();
+  return data.user || null;
+};
+
+const apiUpdateUser = async (userId: string, data: Record<string, unknown>) => {
+  const response = await fetch('/api/users', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, ...data }),
+  });
+  if (!response.ok) throw new Error('Failed to update user');
+  return response.json();
+};
 
 interface AuthState {
   user: User | null;
@@ -66,14 +95,22 @@ export const useAuthStore = create<AuthState>()(
           await updateProfile(userCredential.user, { displayName });
           
           // Send verification email
-          await sendEmailVerification(userCredential.user);
+          try {
+            await sendEmailVerification(userCredential.user);
+          } catch (emailError) {
+            console.warn('Failed to send verification email:', emailError);
+          }
           
-          // Create user in Firestore
-          await createUser(userCredential.user.uid, {
-            email,
-            displayName,
-            emailVerified: false,
-          });
+          // Create user via API (don't fail if this errors)
+          try {
+            await apiCreateUser(userCredential.user.uid, {
+              email,
+              displayName,
+              emailVerified: false,
+            });
+          } catch (apiError) {
+            console.warn('Failed to create user via API:', apiError);
+          }
           
           set({
             user: userCredential.user,
@@ -99,10 +136,15 @@ export const useAuthStore = create<AuthState>()(
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           
-          // Update last login in Firestore
-          await updateUser(userCredential.user.uid, {
-            lastLogin: new Date() as any,
-          });
+          // Update last login via API (don't fail if this errors)
+          try {
+            await apiUpdateUser(userCredential.user.uid, {
+              lastLogin: new Date(),
+            });
+          } catch (apiError) {
+            // Log but don't fail - the auth succeeded
+            console.warn('Failed to update last login via API:', apiError);
+          }
           
           set({
             user: userCredential.user,
@@ -117,6 +159,8 @@ export const useAuthStore = create<AuthState>()(
             errorMessage = 'Incorrect password';
           } else if (error.code === 'auth/invalid-email') {
             errorMessage = 'Invalid email address';
+          } else if (error.code === 'auth/invalid-credential') {
+            errorMessage = 'Invalid email or password';
           } else if (error.code === 'auth/too-many-requests') {
             errorMessage = 'Too many failed attempts. Please try again later';
           }
@@ -131,18 +175,23 @@ export const useAuthStore = create<AuthState>()(
           const provider = new GoogleAuthProvider();
           const userCredential = await signInWithPopup(auth, provider);
           
-          // Create or update user in Firestore
-          const existingUser = await getUser(userCredential.user.uid);
-          if (!existingUser) {
-            await createUser(userCredential.user.uid, {
-              email: userCredential.user.email || '',
-              displayName: userCredential.user.displayName || '',
-              photoURL: userCredential.user.photoURL || '',
-            });
-          } else {
-            await updateUser(userCredential.user.uid, {
-              lastLogin: new Date() as any,
-            });
+          // Create or update user in Firestore (don't fail if this errors)
+          try {
+            const existingUser = await apiGetUser(userCredential.user.uid);
+            if (!existingUser) {
+              await apiCreateUser(userCredential.user.uid, {
+                email: userCredential.user.email || '',
+                displayName: userCredential.user.displayName || '',
+                photoURL: userCredential.user.photoURL || '',
+              });
+            } else {
+              await apiUpdateUser(userCredential.user.uid, {
+                lastLogin: new Date(),
+              });
+            }
+          } catch (apiError) {
+            // Log but don't fail - the auth succeeded
+            console.warn('Failed to update user via API:', apiError);
           }
           
           set({
@@ -179,15 +228,22 @@ export const useAuthStore = create<AuthState>()(
       resetPassword: async (email: string) => {
         set({ isLoading: true, error: null });
         try {
-          await sendPasswordResetEmail(auth, email);
-          set({ isLoading: false });
-        } catch (error: any) {
-          let errorMessage = 'Failed to send reset email';
-          if (error.code === 'auth/user-not-found') {
-            errorMessage = 'No account found with this email';
-          } else if (error.code === 'auth/invalid-email') {
-            errorMessage = 'Invalid email address';
+          const response = await fetch('/api/auth/reset-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || 'Failed to send reset email');
           }
+
+          set({ isLoading: false });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to send reset email';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
         }
@@ -220,7 +276,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           await updateProfile(user, { displayName });
-          await updateUser(user.uid, { displayName });
+          await apiUpdateUser(user.uid, { displayName });
           set({ isLoading: false });
         } catch (error) {
           set({ error: 'Failed to update profile', isLoading: false });

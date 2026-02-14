@@ -19,7 +19,37 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
-import { getUser, updateUser, getUserOrders, DBUser, DBOrder } from "@/lib/db-service";
+
+// Types
+interface DBUser {
+  id: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  phone?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    country: string;
+    zipCode: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
+  isSubscribed: boolean;
+  orderCount: number;
+  totalSpent: number;
+}
+
+interface DBOrder {
+  id: string;
+  userId: string;
+  items: Array<{ name: string; quantity: number; price: number; image?: string }>;
+  total: number;
+  status: string;
+  createdAt: string;
+}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -53,24 +83,31 @@ export default function AccountPage() {
       
       setIsLoading(true);
       try {
-        const [userDoc, userOrders] = await Promise.all([
-          getUser(user.uid),
-          getUserOrders(user.uid),
+        const [userResponse, ordersResponse] = await Promise.all([
+          fetch(`/api/users?userId=${user.uid}`),
+          fetch(`/api/orders?userId=${user.uid}`),
         ]);
         
-        if (userDoc) {
-          setUserData(userDoc);
-          setEditForm({
-            displayName: userDoc.displayName || "",
-            phone: userDoc.phone || "",
-            street: userDoc.address?.street || "",
-            city: userDoc.address?.city || "",
-            state: userDoc.address?.state || "",
-            country: userDoc.address?.country || "",
-            zipCode: userDoc.address?.zipCode || "",
-          });
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          if (userData.user) {
+            setUserData(userData.user);
+            setEditForm({
+              displayName: userData.user.displayName || "",
+              phone: userData.user.phone || "",
+              street: userData.user.address?.street || "",
+              city: userData.user.address?.city || "",
+              state: userData.user.address?.state || "",
+              country: userData.user.address?.country || "",
+              zipCode: userData.user.address?.zipCode || "",
+            });
+          }
         }
-        setOrders(userOrders);
+        
+        if (ordersResponse.ok) {
+          const ordersData = await ordersResponse.json();
+          setOrders(ordersData.orders || []);
+        }
       } catch (error) {
         console.error("Error loading user data:", error);
       } finally {
@@ -88,17 +125,24 @@ export default function AccountPage() {
     
     setIsSaving(true);
     try {
-      await updateUser(user.uid, {
-        displayName: editForm.displayName,
-        phone: editForm.phone,
-        address: {
-          street: editForm.street,
-          city: editForm.city,
-          state: editForm.state,
-          country: editForm.country,
-          zipCode: editForm.zipCode,
-        },
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          displayName: editForm.displayName,
+          phone: editForm.phone,
+          address: {
+            street: editForm.street,
+            city: editForm.city,
+            state: editForm.state,
+            country: editForm.country,
+            zipCode: editForm.zipCode,
+          },
+        }),
       });
+      
+      if (!response.ok) throw new Error('Failed to update user');
       
       setUserData((prev) => prev ? {
         ...prev,

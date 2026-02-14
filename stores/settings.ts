@@ -1,6 +1,9 @@
 ﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { getSettings, updateSettings, initializeSettings, DBSettings } from '@/lib/db-service';
+import { DEFAULT_SITE_SETTINGS } from '@/lib/default-settings';
+import type { SiteSettings } from '@/types/settings';
+
+type DBSettings = SiteSettings;
 
 interface SettingsState {
   settings: DBSettings | null;
@@ -13,44 +16,23 @@ interface SettingsState {
   initSettings: () => Promise<void>;
 }
 
-const defaultSettings: DBSettings = {
-  siteName: 'ZEN LOCAL BRAND',
-  tagline: 'Premium Streetwear Collection',
-  description: 'Elevate your style with our exclusive collection of premium streetwear.',
-  email: 'support@zenlocalbrand.shop',
-  phone: '+201062137061',
-  address: 'Cairo, Egypt',
-  socialLinks: {
-    instagram: 'https://www.instagram.com/zen.local_brand/',
-    twitter: '',
-    facebook: '',
-    tiktok: '',
-  },
-  heroTitle: 'ZEN LOCAL BRAND',
-  heroSubtitle: 'Elevate your style with our exclusive collection of premium streetwear. Designed for those who dare to stand out.',
-  heroButtonText: 'Shop Now',
-  aboutTitle: 'Our Story',
-  aboutContent: 'Founded in 2026, ZEN LOCAL BRAND was born from a passion for creating high-quality streetwear that combines comfort with cutting-edge design.',
-  footerText: ' 2026 ZEN LOCAL BRAND. All rights reserved.',
-  announcementBar: '🚚 Free shipping on orders over 1500 EGP!',
-  primaryColor: '#10b981',
-  accentColor: '#34d399',
-  currency: 'EGP',
-  taxRate: 0,
-};
-
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      settings: defaultSettings,
+      settings: DEFAULT_SITE_SETTINGS,
       isLoading: false,
       error: null,
 
       loadSettings: async () => {
         set({ isLoading: true, error: null });
         try {
-          const settings = await getSettings();
-          set({ settings: settings || defaultSettings, isLoading: false });
+          const response = await fetch('/api/admin/settings');
+          if (!response.ok) throw new Error('Failed to fetch settings');
+          const result = await response.json();
+          set({
+            settings: result.settings ? { ...DEFAULT_SITE_SETTINGS, ...result.settings } : DEFAULT_SITE_SETTINGS,
+            isLoading: false,
+          });
         } catch (error) {
           console.error('Error loading settings:', error);
           set({ error: 'Failed to load settings', isLoading: false });
@@ -60,10 +42,22 @@ export const useSettingsStore = create<SettingsState>()(
       saveSettings: async (data: Partial<DBSettings>) => {
         set({ isLoading: true, error: null });
         try {
-          await updateSettings(data);
-          const current = get().settings;
+          const response = await fetch('/api/admin/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to save settings (${response.status})`);
+          }
+
+          const result = await response.json();
+          const updated = result?.settings as DBSettings | undefined;
+          const fallback = get().settings;
+
           set({
-            settings: current ? { ...current, ...data } : { ...defaultSettings, ...data },
+            settings: updated || (fallback ? { ...fallback, ...data } : { ...DEFAULT_SITE_SETTINGS, ...data }),
             isLoading: false,
           });
         } catch (error) {
@@ -76,8 +70,10 @@ export const useSettingsStore = create<SettingsState>()(
       initSettings: async () => {
         set({ isLoading: true, error: null });
         try {
-          const settings = await initializeSettings();
-          set({ settings, isLoading: false });
+          const response = await fetch('/api/admin/settings');
+          if (!response.ok) throw new Error('Failed to initialize settings');
+          const result = await response.json();
+          set({ settings: result.settings ? { ...DEFAULT_SITE_SETTINGS, ...result.settings } : DEFAULT_SITE_SETTINGS, isLoading: false });
         } catch (error) {
           console.error('Error initializing settings:', error);
           set({ error: 'Failed to initialize settings', isLoading: false });

@@ -26,7 +26,7 @@ const faqCategories = [
       },
       {
         question: "Is there free shipping?",
-        answer: "Yes! We offer FREE standard shipping on all orders over 1,500 EGP. No code needed - the discount is applied automatically at checkout."
+        answer: "Yes! We offer FREE standard shipping on all orders over 5,000 EGP. No code needed - the discount is applied automatically at checkout."
       },
     ]
   },

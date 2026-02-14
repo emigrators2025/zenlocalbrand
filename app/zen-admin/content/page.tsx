@@ -11,13 +11,15 @@ import {
   Phone,
   MapPin,
   Globe,
-  Palette,
   FileText,
   AlertCircle,
   CheckCircle,
+  DollarSign,
 } from "lucide-react";
 import { useAdminStore } from "@/stores/admin";
 import { useSettingsStore } from "@/stores/settings";
+
+const EGYPTIAN_POUND = "EGP";
 
 export default function AdminContentPage() {
   const router = useRouter();
@@ -54,12 +56,8 @@ export default function AdminContentPage() {
     footerText: "",
     announcementBar: "",
     
-    // Colors
-    primaryColor: "",
-    accentColor: "",
-    
     // Commerce
-    currency: "",
+    currency: EGYPTIAN_POUND,
     taxRate: 0,
   });
   
@@ -95,9 +93,7 @@ export default function AdminContentPage() {
         aboutContent: settings.aboutContent || "",
         footerText: settings.footerText || "",
         announcementBar: settings.announcementBar || "",
-        primaryColor: settings.primaryColor || "#10b981",
-        accentColor: settings.accentColor || "#34d399",
-        currency: settings.currency || "USD",
+        currency: EGYPTIAN_POUND,
         taxRate: settings.taxRate || 0,
       });
     }
@@ -129,9 +125,7 @@ export default function AdminContentPage() {
         aboutContent: form.aboutContent,
         footerText: form.footerText,
         announcementBar: form.announcementBar,
-        primaryColor: form.primaryColor,
-        accentColor: form.accentColor,
-        currency: form.currency,
+        currency: EGYPTIAN_POUND,
         taxRate: form.taxRate,
       });
       setSaveSuccess(true);
@@ -405,66 +399,30 @@ export default function AdminContentPage() {
                   value={form.announcementBar}
                   onChange={(e) => setForm({ ...form, announcementBar: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder=" Free shipping on orders over $100!"
+                  placeholder=" Free shipping on orders over 5,000 EGP!"
                 />
               </div>
             </div>
           </section>
 
-          {/* Colors & Commerce */}
+          {/* Commerce */}
           <section className="bg-white/5 border border-white/10 rounded-xl p-6">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Palette className="w-5 h-5 text-emerald-500" />
-              Colors & Commerce
+              <DollarSign className="w-5 h-5 text-emerald-500" />
+              Commerce
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Primary Color</label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={form.primaryColor}
-                    onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                    className="w-12 h-10 rounded cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={form.primaryColor}
-                    onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Accent Color</label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={form.accentColor}
-                    onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
-                    className="w-12 h-10 rounded cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={form.accentColor}
-                    onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-              <div>
                 <label className="block text-sm text-gray-400 mb-1">Currency</label>
-                <select
-                  value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                <input
+                  type="text"
+                  value={`${form.currency || EGYPTIAN_POUND} - Egyptian Pound`}
+                  readOnly
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (Euro)</option>
-                  <option value="GBP">GBP ()</option>
-                  <option value="CAD">CAD (C$)</option>
-                  <option value="AUD">AUD (A$)</option>
-                </select>
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Currency is locked to Egyptian Pound across the storefront and admin experiences.
+                </p>
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Tax Rate (%)</label>

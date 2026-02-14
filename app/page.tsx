@@ -1,15 +1,62 @@
 ﻿'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight, Package, Sparkles, Truck, Shield } from 'lucide-react';
+import { ArrowRight, Package, Sparkles, Truck, Shield, Loader2, CheckCircle } from 'lucide-react';
 import { useProductsStore } from '@/stores/products';
 
 export default function HomePage() {
-  const { products } = useProductsStore();
+  const { products, loadProducts } = useProductsStore();
   const activeProducts = products.filter(p => p.status === 'active');
   const featuredProducts = activeProducts.filter(p => p.featured).slice(0, 4);
   const displayProducts = featuredProducts.length > 0 ? featuredProducts : activeProducts.slice(0, 4);
+
+  const [subscribeEmail, setSubscribeEmail] = useState('');
+  const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [subscribeStatus, setSubscribeStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [subscribeMessage, setSubscribeMessage] = useState('');
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const handleSubscribe = async () => {
+    if (!subscribeEmail || !subscribeEmail.includes('@')) {
+      setSubscribeStatus('error');
+      setSubscribeMessage('Please enter a valid email');
+      return;
+    }
+
+    setSubscribeLoading(true);
+    try {
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: subscribeEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubscribeStatus('success');
+        setSubscribeMessage(data.message || 'Successfully subscribed!');
+        setSubscribeEmail('');
+      } else {
+        setSubscribeStatus('error');
+        setSubscribeMessage(data.error || 'Failed to subscribe');
+      }
+    } catch (error) {
+      setSubscribeStatus('error');
+      setSubscribeMessage('Failed to subscribe. Please try again.');
+    } finally {
+      setSubscribeLoading(false);
+      setTimeout(() => {
+        setSubscribeStatus('idle');
+        setSubscribeMessage('');
+      }, 4000);
+    }
+  };
 
   return (
     <main className="min-h-screen">
@@ -113,7 +160,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { icon: Truck, title: 'Free Shipping', desc: 'On orders over $100' },
+              { icon: Truck, title: 'Free Shipping', desc: 'On orders over 5,000 EGP' },
               { icon: Shield, title: 'Secure Payment', desc: '100% secure checkout' },
               { icon: Sparkles, title: 'Premium Quality', desc: 'Handcrafted with care' },
             ].map((feature, index) => (
@@ -167,7 +214,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-2xl font-semibold mb-4">No Products Available</h3>
               <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                We're currently curating our collection. Check back soon for amazing products!
+                We are currently curating our collection. Check back soon for amazing products!
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/products">
@@ -192,7 +239,7 @@ export default function HomePage() {
                     viewport={{ once: true }}
                     transition={{ delay: index * 0.1 }}
                   >
-                    <Link href={`/products/${product.id}`}>
+                    <Link href={`/products/${product.slug}`}>
                       <div className="group bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500/50 transition-all duration-300">
                         <div className="aspect-square bg-zinc-800 relative overflow-hidden">
                           {product.images && product.images[0] ? (
@@ -218,9 +265,9 @@ export default function HomePage() {
                           </h3>
                           <p className="text-gray-400 text-sm">{product.category}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <span className="text-emerald-400 font-bold">${product.price}</span>
-                            {product.originalPrice > product.price && (
-                              <span className="text-gray-500 line-through text-sm">${product.originalPrice}</span>
+                            <span className="text-emerald-400 font-bold">{product.price} EGP</span>
+                            {product.comparePrice && product.comparePrice > product.price && (
+                              <span className="text-gray-500 line-through text-sm">{product.comparePrice} EGP</span>
                             )}
                           </div>
                         </div>
@@ -270,16 +317,43 @@ export default function HomePage() {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500"
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubscribe()}
+                disabled={subscribeLoading || subscribeStatus === 'success'}
+                className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500 disabled:opacity-50"
               />
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-6 py-3 bg-emerald-500 text-black font-medium rounded-lg"
+                whileHover={{ scale: subscribeLoading ? 1 : 1.05 }}
+                whileTap={{ scale: subscribeLoading ? 1 : 0.95 }}
+                onClick={handleSubscribe}
+                disabled={subscribeLoading || subscribeStatus === 'success'}
+                className="px-6 py-3 bg-emerald-500 text-black font-medium rounded-lg disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                Subscribe
+                {subscribeLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Subscribing...
+                  </>
+                ) : subscribeStatus === 'success' ? (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Subscribed!
+                  </>
+                ) : (
+                  'Subscribe'
+                )}
               </motion.button>
             </div>
+            {subscribeMessage && (
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-4 text-sm ${subscribeStatus === 'success' ? 'text-emerald-400' : 'text-red-400'}`}
+              >
+                {subscribeMessage}
+              </motion.p>
+            )}
           </motion.div>
         </div>
       </section>

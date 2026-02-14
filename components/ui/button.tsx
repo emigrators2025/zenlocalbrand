@@ -2,20 +2,21 @@
 
 import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { forwardRef } from 'react';
+import { forwardRef, ReactNode } from 'react';
 
-interface ButtonProps extends HTMLMotionProps<'button'> {
+interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  children?: ReactNode;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, children, disabled, ...props }, ref) => {
     const variants = {
-      primary: 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/25',
+      primary: 'bg-primary text-black hover:opacity-90 shadow-lg shadow-black/20',
       secondary: 'bg-zinc-800 text-white hover:bg-zinc-700',
-      outline: 'border-2 border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-white',
+      outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-black',
       ghost: 'text-zinc-400 hover:text-white hover:bg-zinc-800',
       danger: 'bg-red-500 text-white hover:bg-red-600',
     };
@@ -32,7 +33,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
-          'relative inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
+          'relative inline-flex items-center justify-center font-semibold rounded-[var(--border-radius)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
           variants[variant],
           sizes[size],
           className

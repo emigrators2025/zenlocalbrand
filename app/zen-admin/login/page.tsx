@@ -6,11 +6,12 @@ import { motion } from 'framer-motion';
 import { Shield, User, Lock, Key, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAdminStore } from '@/stores/admin';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, PRIMARY_ADMIN_EMAIL } from '@/lib/security';
 import toast from 'react-hot-toast';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { login, verifySigningKey, isAuthenticated, signingKeyVerified } = useAdminStore();
+  const { login, verifySigningKey, isAuthenticated, signingKeyVerified, setAdminEmail } = useAdminStore();
   
   const [step, setStep] = useState<'credentials' | 'signing-key'>(
     isAuthenticated && !signingKeyVerified ? 'signing-key' : 'credentials'
@@ -27,10 +28,16 @@ export default function AdminLoginPage() {
     setError('');
     setLoading(true);
 
+    const normalizedIdentifier = username.trim().toLowerCase();
+    const acceptsIdentifier =
+      normalizedIdentifier === ADMIN_USERNAME.toLowerCase() ||
+      normalizedIdentifier === PRIMARY_ADMIN_EMAIL.toLowerCase();
+
     // Verify credentials
-    if (username === 'ZenAdmin2026' && password === 'Ma23072007ZenLocal2026') {
+    if (acceptsIdentifier && password === ADMIN_PASSWORD) {
       const token = btoa(`ZEN-ADMIN-${Date.now()}-${Math.random().toString(36)}`);
       login(token);
+      setAdminEmail(PRIMARY_ADMIN_EMAIL);
       toast.success('Credentials verified!');
       setStep('signing-key');
     } else {
@@ -107,7 +114,7 @@ export default function AdminLoginPage() {
             <form onSubmit={handleCredentialsSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Username
+                  Username or Email
                 </label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
@@ -115,7 +122,7 @@ export default function AdminLoginPage() {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter admin username"
+                    placeholder="ZenAdmin2026 or owner email"
                     className="w-full pl-12 pr-4 py-3 bg-zinc-900/50 border border-zinc-700 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     required
                   />

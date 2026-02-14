@@ -85,7 +85,7 @@ export default function ShippingPage() {
               Free Shipping
             </h3>
             <p className="text-gray-300">
-              Enjoy FREE standard shipping on all orders over <span className="text-emerald-500 font-bold">1,500 EGP</span>! 
+              Enjoy FREE standard shipping on all orders over <span className="text-emerald-500 font-bold">5,000 EGP</span>! 
               No code needed - discount applied automatically at checkout.
             </p>
           </div>

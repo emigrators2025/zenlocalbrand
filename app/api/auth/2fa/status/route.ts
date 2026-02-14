@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/db-service';
+import { adminDb } from '@/lib/firebase-admin';
+import type { SiteSettings } from '@/types/settings';
+
+const USERS_COLLECTION = 'users';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+    const settingsSnap = await adminDb
+      .collection('settings')
+      .doc('site_settings')
+      .get();
+    const settings = settingsSnap.data() as Partial<SiteSettings> | undefined;
+    const enforceEmail2FA = settings?.enforceEmail2FA ?? true;
+
+    if (enforceEmail2FA) {
+      return NextResponse.json({ twoFactorEnabled: true });
     }
 
-    const user = await getUser(userId);
+    if (!userId) {
+      return NextResponse.json({ twoFactorEnabled: true });
+    }
+
+    // Get user directly from adminDb
+    const userDoc = await adminDb.collection(USERS_COLLECTION).doc(userId).get();
+    const user = userDoc.exists ? userDoc.data() : null;
 
     if (!user) {
       return NextResponse.json(

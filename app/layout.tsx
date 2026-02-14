@@ -1,55 +1,77 @@
 ﻿import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { LiveChatWidget } from "@/components/layout/live-chat";
+import { getPublicSettings } from "@/lib/server-settings";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
-  title: "DVANCEDXEN - Premium Streetwear",
+  title: "ZEN LOCAL BRAND",
   description: "Premium streetwear and fashion for those who dare to stand out.",
   keywords: ["streetwear", "fashion", "clothing", "premium", "style"],
 };
 
-export default function RootLayout({
+const FONT_IMPORTS: Record<string, string> = {
+  Inter: "Inter:wght@400;500;600;700",
+  Poppins: "Poppins:wght@400;500;600;700",
+  Roboto: "Roboto:wght@400;500;700",
+  "Open Sans": "Open+Sans:wght@400;600;700",
+  Montserrat: "Montserrat:wght@400;600;700",
+  "Playfair Display": "Playfair+Display:wght@400;600;700",
+  "Space Grotesk": "Space+Grotesk:wght@400;600;700",
+  "DM Sans": "DM+Sans:wght@400;600;700",
+};
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getPublicSettings();
+  const fontRequest = FONT_IMPORTS[settings.fontFamily];
+
+  const cssVariables: Record<string, string> = {
+    "--background": settings.backgroundColor,
+    "--foreground": settings.textColor,
+    "--primary-color": settings.primaryColor,
+    "--accent-color": settings.accentColor,
+    "--border-radius": settings.borderRadius,
+    "--font-base": settings.fontFamily,
+  };
+
   return (
-    <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-white min-h-screen`}>
+    <html lang="en" className="dark" style={cssVariables}>
+      <head>
+        {fontRequest ? (
+          <link
+            rel="stylesheet"
+            href={`https://fonts.googleapis.com/css2?family=${fontRequest}&display=swap`}
+          />
+        ) : null}
+      </head>
+      <body className="antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <Toaster
           position="top-center"
           toastOptions={{
             style: {
-              background: '#18181b',
-              color: '#fff',
-              border: '1px solid #27272a',
+              background: "#18181b",
+              color: "var(--foreground)",
+              border: "1px solid #27272a",
             },
             success: {
               iconTheme: {
-                primary: '#10b981',
-                secondary: '#fff',
+                primary: settings.primaryColor,
+                secondary: "#fff",
               },
             },
           }}
         />
-        <Navbar />
-        <main className="min-h-screen pt-20">
-          {children}
-        </main>
-        <Footer />
+        <Navbar settings={settings} />
+        <main className="min-h-screen pt-20">{children}</main>
+        <Footer settings={settings} />
+        <LiveChatWidget />
       </body>
     </html>
   );
